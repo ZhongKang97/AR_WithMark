@@ -35,9 +35,9 @@ public:
 		cameraXML.release();
 	}
 	void run_MR_POSE(cv::Mat frame);
-	double get_X_distance() { return transport.at<double>(0, 0); }
-	double get_Y_distance() { return transport.at<double>(1, 0); }
-	double get_Z_distance() { return transport.at<double>(2, 0); }
+	double get_X_distance() { return distance_x; }
+	double get_Y_distance() { return distance_y; }
+	double get_Z_distance() { return distance_z; }
 private:
 	cv::Point2d pixel2cam(const cv::Point2d& p, const cv::Mat& K)
 	{
@@ -54,5 +54,6 @@ private:
 		cv::Mat& R, cv::Mat& t);
 	cv::Mat cameraMatrix, discoffes;
 	cv::Mat rotation, transport;
+	double distance_x, distance_y, distance_z;
 };
 #endif

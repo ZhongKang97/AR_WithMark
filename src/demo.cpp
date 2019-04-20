@@ -12,10 +12,13 @@ int main(int argc, char **argv)
 		{
 			cap >> frame;
 			if (frame.empty()) break;
-			cv::String xml_path = "/home/robocon/OpenCV_codeSources/AR_WithMark/camera_parameter/";
+			cv::String xml_path = "D:\\CODEing\\OpenCV_codeSources\\MR_Position\\camera_parameter\\";
 			cv::String filename = "C930E_320x240_calibMatrixs.xml";
 			pose.getCameraParamiterFromXML(xml_path+filename);
 			pose.run_MR_POSE(frame);
+			cout << "distance_X: " << pose.get_X_distance() << " mm" << endl;
+			cout << "distance_Y: " << pose.get_Y_distance() << " mm" << endl;
+			cout << "distance_Z: " << pose.get_Z_distance() << " mm" << endl;
 			char c = cv::waitKey(1);
 			if (c == 27) break;
 		}

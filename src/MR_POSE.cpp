@@ -16,115 +16,133 @@ void MR_POSE::run_MR_POSE(cv::Mat frame)
 	//imshow("with mask", frame_masked);
 	std::vector<cv::Vec3f> circles;
 	cv::HoughCircles(frame_gray, circles, cv::HOUGH_GRADIENT, 1.5, 20, 40, 50, 10, 100);
-	cout << "Circles size " << circles.size() << endl;
+	std::cout << "Circles size " << circles.size() << endl;
+	bool find_target = false;
 	if (circles.size() == 4)
 	{
-		cv::Point left_up, left_down;
-		cv::Point right_up, right_down;
-		for (size_t i = 0; i < circles.size(); i++)
+		double meanRDiff = (std::abs(circles[0][2] - circles[1][2]) + std::abs(circles[0][2] - circles[2][2])
+			+ std::abs(circles[0][2] - circles[3][2])) / 3.0;
+		if (meanRDiff < 20)
 		{
-			cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-			int radius = cvRound(circles[i][2]);
-			//绘制圆心
-			circle(frame, center, 3, cv::Scalar(0, 255, 0), -1, 8, 0);
-			//绘制圆轮廓
-			circle(frame, center, radius, cv::Scalar(155, 50, 255), 3, 8, 0);
-		}
-		std::vector<cv::Point2f> left, right;
-
-		int index[4] = { 0,1,2,3 };
-		for (int j = 0; j<3; j++)
-			for (int i = 0; i < 3 - j; i++)
+			cv::Point left_up, left_down;
+			cv::Point right_up, right_down;
+			for (size_t i = 0; i < circles.size(); i++)
 			{
-				if (circles[index[i]][0] > circles[index[i + 1]][0])
-				{
-					int temp = index[i];
-					index[i] = index[i + 1];
-					index[i + 1] = temp;
-				}
+				cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+				int radius = cvRound(circles[i][2]);
+				//绘制圆心
+				circle(frame, center, 3, cv::Scalar(0, 255, 0), -1, 8, 0);
+				//绘制圆轮廓
+				circle(frame, center, radius, cv::Scalar(155, 50, 255), 3, 8, 0);
 			}
+			std::vector<cv::Point2f> left, right;
 
-		left.push_back(cv::Point(circles[index[0]][0], circles[index[0]][1]));
-		left.push_back(cv::Point(circles[index[1]][0], circles[index[1]][1]));
-		right.push_back(cv::Point(circles[index[2]][0], circles[index[2]][1]));
-		right.push_back(cv::Point(circles[index[3]][0], circles[index[3]][1]));
-		if (left[0].y > left[1].y)
-		{
-			left_up = left[1];
-			left_down = left[0];
-		}
-		else
-		{
-			left_up = left[0];
-			left_down = left[1];
-		}
-		if (right[0].y > right[1].y)
-		{
-			right_up = right[1];
-			right_down = right[0];
-		}
-		else
-		{
-			right_up = right[0];
-			right_down = right[1];
-		}
-		double length_up, length_down;
-		length_up = std::sqrt((right_up.x - left_up.x)*(right_up.x - left_up.x) + (right_up.y - left_up.y)*(right_up.y - left_up.y));
-		length_down = std::sqrt((right_down.x - left_down.x)*(right_down.x - left_down.x) + (right_down.y - left_down.y)*(right_down.y - left_down.y));
-		if (std::abs(length_down - length_up) < 20)
-		{
-			//cout << "left_up " << left_up << " ,left_down: " << left_down << endl;
-			//cout << "right_up " << right_up << " ,right_down: " << right_down << endl;
-			line(frame, left_up, right_up, cv::Scalar(0, 0, 255), 2);
-			line(frame, right_up, left_down, cv::Scalar(0, 255, 0), 2);
-			line(frame, left_down, right_down, cv::Scalar(255, 0, 0), 2);
-			std::vector<cv::Point3f> points_3d;
-			points_3d.push_back(cv::Point3f(-37.5, -35, 0));
-			points_3d.push_back(cv::Point3f(37.5, -35, 0));
-			points_3d.push_back(cv::Point3f(-37.5, 35, 0));
-			points_3d.push_back(cv::Point3f(37.5, 35, 0));
-			std::vector<cv::Point2f> points_2d;
-			points_2d.push_back(left_up);
-			points_2d.push_back(right_up);
-			points_2d.push_back(left_down);
-			points_2d.push_back(right_down);
-			//cout << "cameramatrix: " << cameraMatrix << endl;
-			//cout << "dis: " << discoffes << endl;
-			solvePnP(points_3d, points_2d, cameraMatrix, discoffes, rotation, transport, false, cv::SOLVEPNP_P3P);
-			cv::Mat r_matrix;
-			cv::Rodrigues(rotation, r_matrix);
-			bundleAdjustment(points_3d, points_2d, cameraMatrix, r_matrix, transport);
-			cv::Rodrigues(r_matrix, rotation);
-			//cout << "R_vec = " << rotation*90 << endl;
-			//cout << "T_vec=" << transport << endl;
-			std::vector<cv::Point3f> points_3d_obj;
-			points_3d_obj.push_back(cv::Point3f(0, 0, 40));
-			points_3d_obj.push_back(cv::Point3f(0, 40, 0));
-			points_3d_obj.push_back(cv::Point3f(40, 0, 0));
-			points_3d_obj.push_back(cv::Point3f(0, 0, 0));
-			std::vector<cv::Point2f> points_2d_obj;
-			projectPoints(points_3d_obj, rotation, transport, cameraMatrix, discoffes, points_2d_obj);
-			circle(frame, cv::Point2f(frame.cols / 2, frame.rows / 2), 10, cv::Scalar(0, 0, 255), 2);
-			circle(frame, points_2d_obj[3], 10, cv::Scalar(255, 0, 0), 2);
-			line(frame, points_2d_obj[3], cv::Point2f(frame.cols / 2, frame.rows / 2), cv::Scalar(0, 0, 255), 3);
-			line(frame, points_2d_obj[3], points_2d_obj[0], cv::Scalar(255, 0, 0), 2);
-			line(frame, points_2d_obj[3], points_2d_obj[1], cv::Scalar(0, 225, 45), 2);
-			line(frame, points_2d_obj[3], points_2d_obj[2], cv::Scalar(0, 25, 255), 2);
-			int font_face = cv::FONT_HERSHEY_COMPLEX;//字体 
-			double font_scale = 1;//字体大小
-			int thickness = 2;//线宽
-			std::string text_d_x = cv::format("Distant_X: %f ", transport.at<double>(0, 0));
-			std::string text_d_y = cv::format("Distant_Y: %f ", transport.at<double>(1, 0));
-			std::string text_d_z = cv::format("Distant_Z: %f ", transport.at<double>(2, 0));
-			putText(frame, text_d_x, cv::Point(0, 30), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
-			putText(frame, text_d_y, cv::Point(0, 60), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
-			putText(frame, text_d_z, cv::Point(0, 90), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
-		}
+			int index[4] = { 0,1,2,3 };
+			for (int j = 0; j<3; j++)
+				for (int i = 0; i < 3 - j; i++)
+				{
+					if (circles[index[i]][0] > circles[index[i + 1]][0])
+					{
+						int temp = index[i];
+						index[i] = index[i + 1];
+						index[i + 1] = temp;
+					}
+				}
 
+			left.push_back(cv::Point(circles[index[0]][0], circles[index[0]][1]));
+			left.push_back(cv::Point(circles[index[1]][0], circles[index[1]][1]));
+			right.push_back(cv::Point(circles[index[2]][0], circles[index[2]][1]));
+			right.push_back(cv::Point(circles[index[3]][0], circles[index[3]][1]));
+			if (left[0].y > left[1].y)
+			{
+				left_up = left[1];
+				left_down = left[0];
+			}
+			else
+			{
+				left_up = left[0];
+				left_down = left[1];
+			}
+			if (right[0].y > right[1].y)
+			{
+				right_up = right[1];
+				right_down = right[0];
+			}
+			else
+			{
+				right_up = right[0];
+				right_down = right[1];
+			}
+			double length_up, length_down;
+			length_up = std::sqrt((right_up.x - left_up.x)*(right_up.x - left_up.x) + (right_up.y - left_up.y)*(right_up.y - left_up.y));
+			length_down = std::sqrt((right_down.x - left_down.x)*(right_down.x - left_down.x) + (right_down.y - left_down.y)*(right_down.y - left_down.y));
+			if (std::abs(length_down - length_up) < 10)
+			{
+				find_target = true;
+				//cout << "left_up " << left_up << " ,left_down: " << left_down << endl;
+				//cout << "right_up " << right_up << " ,right_down: " << right_down << endl;
+				line(frame, left_up, right_up, cv::Scalar(0, 0, 255), 2);
+				line(frame, right_up, left_down, cv::Scalar(0, 255, 0), 2);
+				line(frame, left_down, right_down, cv::Scalar(255, 0, 0), 2);
+				std::vector<cv::Point3f> points_3d;
+				points_3d.push_back(cv::Point3f(-37.5, -35, 0));
+				points_3d.push_back(cv::Point3f(37.5, -35, 0));
+				points_3d.push_back(cv::Point3f(-37.5, 35, 0));
+				points_3d.push_back(cv::Point3f(37.5, 35, 0));
+				std::vector<cv::Point2f> points_2d;
+				points_2d.push_back(left_up);
+				points_2d.push_back(right_up);
+				points_2d.push_back(left_down);
+				points_2d.push_back(right_down);
+				//cout << "cameramatrix: " << cameraMatrix << endl;
+				//cout << "dis: " << discoffes << endl;
+				solvePnP(points_3d, points_2d, cameraMatrix, discoffes, rotation, transport, false, cv::SOLVEPNP_P3P);
+				cv::Mat r_matrix;
+				cv::Rodrigues(rotation, r_matrix);
+				bundleAdjustment(points_3d, points_2d, cameraMatrix, r_matrix, transport);
+				cv::Rodrigues(r_matrix, rotation);
+				//cout << "R_vec = " << rotation*90 << endl;
+				//cout << "T_vec=" << transport << endl;
+				std::vector<cv::Point3f> points_3d_obj;
+				points_3d_obj.push_back(cv::Point3f(0, 0, -40));
+				points_3d_obj.push_back(cv::Point3f(0, 40, 0));
+				points_3d_obj.push_back(cv::Point3f(40, 0, 0));
+				points_3d_obj.push_back(cv::Point3f(0, 0, 0));
+				std::vector<cv::Point2f> points_2d_obj;
+				projectPoints(points_3d_obj, rotation, transport, cameraMatrix, discoffes, points_2d_obj);
+				circle(frame, cv::Point2f(frame.cols / 2, frame.rows / 2), 10, cv::Scalar(0, 0, 255), 2);
+				circle(frame, points_2d_obj[3], 10, cv::Scalar(255, 0, 0), 2);
+				line(frame, points_2d_obj[3], cv::Point2f(frame.cols / 2, frame.rows / 2), cv::Scalar(0, 0, 255), 3);
+				line(frame, points_2d_obj[3], points_2d_obj[0], cv::Scalar(255, 0, 0), 2);
+				line(frame, points_2d_obj[3], points_2d_obj[1], cv::Scalar(0, 225, 45), 2);
+				line(frame, points_2d_obj[3], points_2d_obj[2], cv::Scalar(0, 25, 255), 2);
+				int font_face = cv::FONT_HERSHEY_COMPLEX;//字体 
+				double font_scale = 1;//字体大小
+				int thickness = 2;//线宽
+				std::string text_d_x = cv::format("Distant_X: %f ", transport.at<double>(0, 0));
+				std::string text_d_y = cv::format("Distant_Y: %f ", transport.at<double>(1, 0));
+				std::string text_d_z = cv::format("Distant_Z: %f ", transport.at<double>(2, 0));
+				putText(frame, text_d_x, cv::Point(0, 30), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
+				putText(frame, text_d_y, cv::Point(0, 60), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
+				putText(frame, text_d_z, cv::Point(0, 90), font_face, font_scale, cv::Scalar(255, 0, 135), thickness, 8, 0);
+			}
+		}
 	}
 	imshow("circles", frame);
+	if (find_target)
+	{
+		distance_x= transport.at<double>(0, 0);
+		distance_y= transport.at<double>(1, 0);
+		distance_z= transport.at<double>(2, 0);
+	}
+	else
+	{
+		distance_x = 777;
+		distance_y = 777;
+		distance_z = 777;
+	}
 	double runtime = (static_cast<double>(cv::getTickCount()) - t0) / cv::getTickFrequency();
-	cout << "run time perFrame is : " << runtime * 1000 << " ms" << endl;
+	std::cout << "run time perFrame is : " << runtime * 1000 << " ms" << endl;
 }
 
 
@@ -193,10 +211,10 @@ optimizer.initializeOptimization();
 optimizer.optimize(20);
 chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
 chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>> (t2 - t1);
-cout << "optimization costs time: " << time_used.count() << " seconds." << endl;
+std::cout << "optimization costs time: " << time_used.count() << " seconds." << endl;
 
 //cout << endl << "after optimization:" << endl;
-cout << "T=" << endl << Eigen::Isometry3d(pose->estimate()).matrix() << endl;
+//cout << "T=" << endl << Eigen::Isometry3d(pose->estimate()).matrix() << endl;
 }
 MR_POSE::MR_POSE()
 {
