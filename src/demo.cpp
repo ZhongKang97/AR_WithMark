@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 		{
 			cap >> frame;
 			if (frame.empty()) break;
-			cv::String xml_path = "../camera_parameter/";
+			cv::String xml_path = "/home/robocon/OpenCV_codeSources/AR_WithMark/camera_parameter/";
 			cv::String filename = "C930E_320x240_calibMatrixs.xml";
 			pose.getCameraParamiterFromXML(xml_path+filename);
 			pose.run_MR_POSE(frame);
